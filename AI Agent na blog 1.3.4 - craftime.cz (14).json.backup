@@ -1,0 +1,1122 @@
+{
+  "name": "AI Agent na blog 1.3.4 - craftime.cz",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://craftime.cz/wp-json/wp/v2/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Disposition",
+              "value": "=attachment; filename={{ $json.media?.fileName || ($json.slug || 'image') + '.webp' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "={{ $binary.data.mimeType || 'image/webp' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        9632,
+        3952
+      ],
+      "id": "75963fd2-6d9e-496c-b14c-eef7e4df76dd",
+      "name": "Send Media - Featured",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "FZ93eFjWWYY0EeoG",
+          "name": "AgentUploadCraftime"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        9328,
+        3952
+      ],
+      "id": "7a56d534-150e-4b5f-9071-3aa4b29d4aad",
+      "name": "Merge - Featured",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const title = $json.title || '';\nconst html = $json.content_html || '';\n// Extrakce prvního odstavce\nconst m = html.match(/<p>([\\s\\S]*?)<\\/p>/i);\nconst first = m ? m[1].replace(/<[^>]+>/g, ' ').replace(/<!--[\\s\\S]*?-->/g, ' ').replace(/\\s+/g, ' ').trim() : '';\n// Extrakce klíčových slov\nconst text = (title + ' ' + first).toLowerCase();\nconst stop = new Set(['a','i','ve','se','že','na','pro','do','s','z','o','u','v','je','jsou','to','jak','co','k','tak','aby','pod','nad','od','bez','nebo','ani','aniž','při','po','už','či','které','který','která','ten','ta','to','tento','tato','toto','až','pro','dětí','děti', 'hra', 'svět', 'bloky']);\nconst words = (text.match(/\\p{L}{4,}/gu) || []).filter(w => !stop.has(w));\nconst uniq = [...new Set(words)].slice(0, 6);\nconst keywords = uniq.join(', ');\n// Vytvoření slug pro fileName Z KLÍČOVÝCH SLOV (ne z title!)\nconst keywordSlug = keywords\n  .normalize('NFD')\n  .replace(/[\\u0300-\\u036f]/g, '')\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-+|-+$/g, '')\n  .slice(0, 50);\n// ✅ OPRAVA: Bez Date.now() a s příponou -feat.webp\nconst fileName = (keywordSlug ? keywordSlug : 'obrazek') + '-feat.webp';\n// ✅ OPRAVA: Alt text BEZ prefixu \"FEATURED - \", max 140 znaků\nconst alt = (title + (keywords ? (' — ' + keywords) : '')).slice(0, 140);\nreturn [{\n  json: {\n    title: $json.title,\n    content_html: $json.content_html,\n    media: {\n      fileName,\n      alt,\n      title: title.slice(0, 100)\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9088,
+        4048
+      ],
+      "id": "2eee0d08-7d28-4a84-b459-193ceeff2d1d",
+      "name": "Code JS - Featured"
+    },
+    {
+      "parameters": {
+        "operation": "resize",
+        "width": 660,
+        "height": 370,
+        "options": {
+          "format": "webp"
+        }
+      },
+      "type": "n8n-nodes-base.editImage",
+      "typeVersion": 1,
+      "position": [
+        9088,
+        3872
+      ],
+      "id": "e2613ca8-99d3-478f-b2b4-b8c25790b580",
+      "name": "Resize Image - Featured"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "prompt": "={{\n(() => {\n  const title = $json.title || '';\n  const ctx = (($json.content_html || '').match(/<p>([\\s\\S]*?)<\\/p>/i)?.[1] || '')\n    .replace(/<[^>]+>/g,' ')\n    .replace(/<!--[\\s\\S]*?-->/g,' ')\n    .replace(/[“”„«»]/g,'\"').replace(/[’‚]/g,\"'\")\n    .replace(/\\s+/g,' ')\n    .trim()\n    .slice(0,120);\n  return `3D obrázek ve stylu video hry minecraft. Téma: ${title}. Kontext: ${ctx}. Poměr 16:9. Bez textu, striktně a zásadně pouze ve stylu minecraft, bloky a minecraft svět. Jako ve video hře Minecraft. Žádne koláže! Žadné texty!`;\n})()\n}}",
+        "options": {
+          "size": "1792x1024"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        8864,
+        4384
+      ],
+      "id": "432ef95b-6c0a-411f-b44b-45750baacf14",
+      "name": "Generate image - Content",
+      "retryOnFail": true,
+      "notesInFlow": true,
+      "alwaysOutputData": true,
+      "waitBetweenTries": 5000,
+      "maxTries": 5,
+      "credentials": {
+        "openAiApi": {
+          "id": "vWAQ72MbGLYVnB6Q",
+          "name": "OpenAi account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "prompt": "={{\n(() => {\n  const title = $json.title || '';\n  const ctx = (($json.content_html || '').match(/<p>([\\s\\S]*?)<\\/p>/i)?.[1] || '')\n    .replace(/<[^>]+>/g,' ')\n    .replace(/<!--[\\s\\S]*?-->/g,' ')\n    .replace(/[“”„«»]/g,'\"').replace(/[’‚]/g,\"'\")\n    .replace(/\\s+/g,' ')\n    .trim()\n    .slice(0,120);\n  return `3D obrázek ve stylu video hry minecraft. Téma: ${title}. Kontext: ${ctx}. Poměr 16:9. Bez textu, striktně a zásadně pouze ve stylu minecraft, bloky a minecraft svět. Jako ve video hře Minecraft. Žádne koláže!  Žádne koláže! Žadné texty!`;\n})()\n}}",
+        "options": {
+          "size": "1792x1024"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        8864,
+        3952
+      ],
+      "id": "d642dcab-2305-4618-996e-89a5f75f10e8",
+      "name": "Generate image - Featured",
+      "retryOnFail": true,
+      "notesInFlow": true,
+      "alwaysOutputData": true,
+      "waitBetweenTries": 5000,
+      "maxTries": 5,
+      "credentials": {
+        "openAiApi": {
+          "id": "vWAQ72MbGLYVnB6Q",
+          "name": "OpenAi account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const base='(\"Minecraft\" OR Mojang OR \"Java Edition\" OR \"Bedrock Edition\" OR Snapshot OR \"Pre-release\" OR Preview OR \"Minecraft Live\" OR \"mob vote\" OR \"patch notes\" OR Dungeons OR Legends)';\nconst urls=[];\nconst today=new Date();\nfor(let i=1;i<=7;i++){\n  const s=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth(),today.getUTCDate()-i));\n  const e=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth(),today.getUTCDate()-i+1));\n  const dayStart=s.toISOString().slice(0,10);\n  const dayEnd=e.toISOString().slice(0,10);\n  urls.push({json:{url:`https://news.google.com/rss/search?q=${encodeURIComponent(`${base} after:${dayStart} before:${dayEnd}`)}&hl=US&gl=US&ceid=US:en`}});\n}\nreturn urls;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6000,
+        4240
+      ],
+      "id": "9ab0ad04-b73b-4fb9-8ce5-fa5a73ab6c45",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        7680,
+        4464
+      ],
+      "id": "1304916a-31c0-43f5-b96e-695cd7222b78",
+      "name": "OpenAI Chat Model9",
+      "credentials": {
+        "openAiApi": {
+          "id": "vWAQ72MbGLYVnB6Q",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output }}",
+        "options": {
+          "systemMessage": "Jsi senior editor blogu. Tvým úkolem je kriticky zhodnotit dodaný HTML článek. \nHledej: \n1. Gramatické a stylistické chyby. \n2. Nedodržení pokynů pro Gutenberg bloky. \n3. Nedostatečnou délku nebo opakování vět.\n\nPřeformátuj a oprav text pro maximální kvalitu, SEO a čtivost. Vrať POUZE opravený JSON objekt s klíči title a content_html"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        7712,
+        4240
+      ],
+      "id": "7610e406-a9c7-4afb-95c0-eabde7524813",
+      "name": "Agent korektor - A"
+    },
+    {
+      "parameters": {
+        "content": "## AI Agnet bloger\npost/media craftime.cz\n!eUTxByKJc6qla44ni7dA^Kx\nAgentUploadCraftime\nLtAR uZTr WFG8 AxAx gdH4 ecWt\nn8n-update-media",
+        "height": 192,
+        "width": 432,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        5728,
+        4032
+      ],
+      "typeVersion": 1,
+      "id": "eae3ef7f-001a-4b70-8349-eeff6f15b878",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output }}",
+        "options": {
+          "systemMessage": "=Jsi „Český Copywriter\", senior copywriter s perfektní znalostí gramatiky a českého pravopisu a specialista s perfektní znalostí SEO, AIO, GEO pro herní obsah a Minecraft. Po sobě kontroluješ text, aby nedocházelo k chybám a překlepům. Tvým úkolem je rozvinout dodanou osnovu do finálního blogového článku v čistém HTML podle SEO, AIO, GEO standardů.\n\nVSTUP: JSON outline (struktura: { \"h1\":\"...\", \"perex\":\"...\", \"sekce\":[{\"h2\":\"...\",\"body\":[\"...\"]}] }) s tématem s tématem Minecraft novinky (např. „Minecraft novinky“, „snapshot“, „pre-release“, „preview“, „Java/Bedrock update“, „Fabric/Forge“, „Realms“, „Education Edition“).\n\nÚKOL:\n\nNapiš článek o délce přibližně 1000 slov.\n\nČlánek musí být podle struktury a pravidel SEO, AIO, GEO.\n\nRozviň H2 nadpisy a jejich odrážky do ucelených, praktických odstavců zaměřených na hráče, moddery a správce serverů Minecraftu a na varianty a podoby klíčových slov z tématu (snapshot ID, verze, kompatibilita, pack_format, API změny, dopad na výkon a hratelnost).\n\nPoužij POUZE HTML s kombinací FORMÁTU GUTENBERG BLOKŮ:\n\nNEGENERUJ <h1> tag. Článek musí začínat formátovacím gutenberg blokem s vnořeným <p> a s vnořeným <em> pro perex.\n\nKaždý odstavec <p> musí být ohraničen <!-- wp:paragraph --> a <!-- /wp:paragraph -->.\n\nKaždý H2 nadpis musí být ohraničen <!-- wp:heading {\"style\":{\"spacing\":{\"padding\":{\"top\":\"var:preset|spacing|40\",\"bottom\":\"0\"}}}} --> a <!-- /wp:heading --> a vnořené H2 musí POUŽÍVAT <h2 class=\"wp-block-heading\" style=\"padding-top:var(--wp--preset--spacing--40);padding-bottom:0\">.\n\nZávěrečný nadpis <h3> musí být ohraničen <!-- wp:heading {\"level\":3,\"style\":{\"spacing\":{\"padding\":{\"top\":\"var:preset|spacing|40\",\"right\":\"0\",\"bottom\":\"0\"}}}} --> a <!-- /wp:heading --> a musí POUŽÍVAT vnořené <h3 class=\"wp-block-heading\" style=\"padding-top:var(--wp--preset--spacing--40);padding-right:0;padding-bottom:0\">.\n\nSeznam <ul> musí být ohraničen <!-- wp:list --> a <!-- /wp:list -->. Všechny jeho položky <li> musí být ohraničeny <!-- wp:list-item --> a <!-- /wp:list-item --> vnořené bude mít <ul class=\"wp-block-list\">.\n\nMeta tag pro SEO <meta name=\"description\".../> umísti na samotný konec mimo jakýkoliv blok.\n\nKaždý H2 nadpis jako <h2> s následným jedním nebo více odstavci <p> pro rozvedení obsahu.\n\nNa konec článku uveď závěrečné shrnutí pod nadpisem <h3>Souhrn článku:</h3>, kde rozvineš body z H2 do seznamu <ul><li>.\n\nPo obsahu článku přidej meta tag pro SEO: <meta name=\"description\" content=\"...\"/>, kde obsah nepřesáhne 155 znaků.\n\nKRITICKY DŮLEŽITÉ - FORMÁT ODPOVĚDI:\nVrať VÝHRADNĚ validní JSON objekt v tomto přesném formátu:\n{\"title\":\"...\",\"content_html\":\"...\"}\n\nJSON MUSÍ:\n\nZačínat znakem { a končit znakem }\n\nBYT BEZ jakéhokoliv textu před nebo za JSON objektem\n\nBYT BEZ trailing uvozovek, newline nebo jiných znaků za ukončující }\n\nObsahovat správně escapované uvozovky a backslashe uvnitř hodnot\n\nBýt validní podle JSON standardu\n\nNEPIŠ:\n\nŽádný text před JSON (jako \"zde je JSON:\" apod.)\n\nŽádný text za JSON\n\nŽádné markdown code blocky (```)\n\nŽádné komentáře\n\nPŘÍKLAD SPRÁVNÉHO VÝSTUPU:\n{\"title\":\"Nadpis článku\",\"content_html\":\"<!-- wp:paragraph --><p>Text...</p><!-- /wp:paragraph -->\"}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        7376,
+        4240
+      ],
+      "id": "b1981415-405b-4922-992a-c749b7d5ab92",
+      "name": "Agent copywriter - A"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output }}",
+        "options": {
+          "systemMessage": "Jsi „Návrhář Osnovy pro Minecraft Novinky“, content stratég specializovaný na Minecraft (Java/Bedrock, snapshoty, pre-release, preview, patch notes, Realms, Education, modding Fabric/Forge, pluginy Paper/Spigot/Velocity, Marketplace).\n\nVSTUP:\n\nJSON klíč \"doporucene\" obsahující relevantní URL a stručné popisy témat o novinkách v Minecraftu.\n\nTools:\n\nINTERNET: Použij nástroj VŽDY k otevření a důkladnému přečtení obsahu všech stránek z klíče \"doporucene\", abys přesně porozuměl tématům.\n\nÚKOL:\n\nDůkladně projdi obsah VŠECH dodaných URL. Zjisti typ novinky (oficiální update/snapshot/patch notes, bezpečnostní/technické změny, modding toolchain, Realms/Education/Marketplace). Deduplikuj totožné zprávy a preferuj primární zdroj mezi poskytnutými odkazy.\n\nVyber a logicky uspořádej témata tak, aby vznikl smysluplný týdenní souhrn pro hráče, moddery a správce serverů. Upřednostni:\na) oficiální update/snapshot/patch notes,\nb) kritické bugfixy a bezpečnost/autentizace,\nc) modding a kompatibilita (Fabric/Forge, pack_format, API změny),\nd) Realms/Education/Marketplace s praktickým dopadem,\ne) velké komunitní eventy s pevným termínem.\n\nVytvoř detailní outline pro český blog (cílově ~1000 slov) na základě prostudovaných stránek:\n• H1 nadpis: chytlavý a obsahuje varianty/ kombinace pro „{{ $('Code in JavaScript').item.json.keyword }}“ nebo příbuzná témata (např. Minecraft novinky, snapshot, update, Java/Bedrock).\n• Perex do 40 slov.\n• 5× H2 nadpis; pod každým 2–3 konkrétní odrážky popisující obsah sekce.\n• V odrážkách uveď konkrétní verzi/snapshot ID, klíčové změny, koho se týkají (hráči/moddeři/admini), případně dopad na kompatibilitu, výkon či pack_format.\n\nVrať POUZE JSON formátem, bez jakéhokoliv dalšího textu, komentáře či vysvětlení.\n{ \"h1\":\"...\", \"perex\":\"...\", \"sekce\":[{\"h2\":\"...\",\"body\":[\"...\"]}] }"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        7024,
+        4240
+      ],
+      "id": "2f5149ce-ad87-4231-97cf-da8823b41b6a",
+      "name": "Agent osnovy - A"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.data }}",
+        "options": {
+          "systemMessage": "=Jsi filtr pro klíčová slova „Minecraft“, „Mojang“, „Snapshot“, „Pre-release“, „Preview“, „Update“, „Java Edition“, „Bedrock Edition“, „Dungeons“, „Legends“, „Education Edition“, „Realms“, „Marketplace“, „server“, „mod“, „Fabric“, „Forge“. Vstup je pole položek z RSS, každá má title, link, description, pubDate.\n\nKROKY PRO FILTROVÁNÍ:\n\nZaměř se POUZE na praktické informace s přímou hodnotou pro hráče, tvůrce a správce serverů Minecraftu:\n\nOficiální oznámení Mojang: hlavní verze, snapshoty, pre-release, preview, patch notes, parity změny, nové bloky/moby/mechaniky, termíny eventů (Minecraft Live, mob vote).\n\nBezpečnost a technika: změny přihlášení a autentizace, Realms výpadky/změny, EULA/commercial guidelines, známé zranitelnosti a jejich opravy.\n\nModding a nástroje: důležité aktualizace Fabric/Forge, mappingy, změny plugin API (Paper/Spigot/Velocity), kompatibilita, změny pack_format pro resource/datapacky.\n\nEducation/učební obsah: nové funkce Education Edition, oficiální lekce či výukové balíčky.\n\nMarketplace/DLC: výrazné oficiální balíčky s hratelnostním dopadem.\n\nStriktně ignoruj:\n\nObecné herní zprávy bez vazby na Minecraft, drby a clickbait, YouTube „Minecraft but…“ videa, čistě osobní tvorbu bez širší relevance, merch, jiné hry.\n\nRelevance a jazyk:\n\nPřijímej CZ i EN termíny: snapshot, pre-release, preview, changelog, patch notes, parity, update, hotfix, Realms, Education, Fabric, Forge, Paper, Spigot, Velocity, datapack, resource pack, pack_format.\n\nDeduplikuj podle kanonické URL nebo normalizovaného titulku.\n\nSeřazení a výběr:\n\nPriorita: a) oficiální update/snapshot/patch notes, b) bezpečnost/technické změny, c) modding/toolchain breaking changes, d) Education/Realms/Marketplace oficiální, e) velké komunitní eventy s pevným termínem.\n\nPoté seřaď podle pubDate (nejnovější první).\n\nVyber max 5 nejdůležitějších položek.\n\nFormát výstupu:\n\n„nazev“ zkrať na max 8 slov.\n\n„proc_podstatne“ napiš jednou větou v češtině, uveď konkrétní přínos pro hráče/moddera/admina (např. číslo verze, snapshot ID, klíčovou změnu, termín).\n\nOdpověz POUZE následujícím JSONem, bez dalšího textu:\n\n{\n\"doporucene\": [\n{\n\"nazev\": \"<Název článku - max 8 slov>\",\n\"url\": \"<link>\",\n\"proc_podstatne\": \"<1 věta: Přímý přínos pro hráče/moddera/admina>\"\n}\n]\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        6672,
+        4240
+      ],
+      "id": "31c0d706-350d-4ef8-a0aa-0e2e36f45ddc",
+      "name": "Agent filtr - A"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                0,
+                2,
+                5
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        5792,
+        4240
+      ],
+      "id": "c2b64b54-68ad-408f-b122-6cefc8ded40f",
+      "name": "Schedule Finanční Gramotnost"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "de1b61e7-592b-4ca6-afc4-1a3f3aee2fb8",
+              "name": "title",
+              "value": "={{ $('Code JS Style').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "2f377c47-c56b-4c32-9093-c24d5045bfc7",
+              "name": "content_html",
+              "value": "={{ $('Code JS Style').item.json.content_html }}",
+              "type": "string"
+            },
+            {
+              "id": "d4f9a615-ddf1-4d6f-b9a9-e85bef92b4de",
+              "name": "featured_media",
+              "value": "null",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        9328,
+        4560
+      ],
+      "id": "f5878352-cae9-42ac-878c-4889850fc434",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e4d93056-4b5c-4ef6-bd67-b0d5afcc7ff9",
+              "leftValue": "={{ $binary.data !== undefined }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        9088,
+        4384
+      ],
+      "id": "095bc8e1-841d-4811-b3a0-a302b4254fc0",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Získání všech vstupů\nconst inputs = $input.all();\n\nconsole.log('=== DEBUG ===');\nconsole.log('Total inputs:', inputs.length);\n\n// Najít Featured Media, Content Media a článek\nlet featuredMedia = null;\nlet contentMedia = null;\nlet articleData = null;\n\n// NOVÁ PROMĚNNÁ pro uložení ID postu (z uzlu Vytvoř příspěvek)\nlet postId = null; \n\ninputs.forEach((item, idx) => {\n  console.log(`Input ${idx}:`, {\n    hasId: !!item.json?.id,\n    slug: item.json?.slug,\n    hasTitle: !!item.json?.title,\n    hasContent: !!item.json?.content_html,\n    source_url: item.json?.source_url\n  });\n\n  // Pokud má slug končící na -feat nebo -cont = média\n  if (item.json?.slug) {\n    if (item.json.slug.endsWith('-feat')) {\n      featuredMedia = item;\n      console.log('✓ Found Featured Media');\n    } else if (item.json.slug.endsWith('-cont')) {\n      contentMedia = item;\n      console.log('✓ Found Content Media');\n    }\n  }\n  \n  // Pokud má title a content_html = data článku\n  if (item.json?.title && item.json?.content?.raw) {\n    articleData = item;\n    console.log('✓ Found Article Data');\n  }\n  \n  // Přidáno: Zachycení ID postu z uzlu Vytvoř příspěvek\n  if (item.json?.id && item.json?.status && item.json.status === 'publish') {\n      postId = item.json.id;\n      console.log('✓ Captured Post ID:', postId);\n  }\n});\n\n// Kontrola článku (povinné)\nif (!articleData) {\n  throw new Error('Article data (title, content_html) not found!');\n}\n\nconst wpTitle = articleData.json.title.rendered;\nlet html = articleData.json.content.raw;\n\n// Featured Media ID (nepovinné)\nconst featuredMediaId = featuredMedia?.json?.id || null;\n\n// Vložení Content Media\nif (contentMedia && contentMedia.json?.id && contentMedia.json?.source_url) {\n  console.log('✓ Content Media found, inserting into HTML');\n  \n  const mediaId = contentMedia.json.id;\n  const contentImageUrl = contentMedia.json.source_url;\n  const alt = (contentMedia.json.alt_text || wpTitle).slice(0, 140).replace(/\"/g, '&quot;');\n\n  // Tady jsem nechal tvůj formát bez wp:image, což je OK, pokud ti to tak funguje\n  const imageBlock = `<figure class=\"wp-block-image size-large\"><img src=\"${contentImageUrl}\" alt=\"${alt}\" class=\"wp-image-${mediaId}\"/></figure>`;\n\n  // **********************************************\n  // ** ZMĚNA: Náhodné vložení mezi 1. a 5. odstavec **\n  // **********************************************\n\n  // 1. Vygeneruj náhodné číslo od 1 do 5 (pro N-tý odstavec)\n  const randomParagraph = Math.floor(Math.random() * 5) + 1; \n  console.log(`Targeting paragraph end: ${randomParagraph}`);\n  \n  // OPRAVA: Správný regulární výraz pro konec odstavce\n  const paragraphEnd = /wp:paragraph/g;\n  let match;\n  let paragraphCount = 0;\n  let insertPos = -1;\n\n  // 2. Najdi konec N-tého odstavce\n  while (paragraphCount < randomParagraph && (match = paragraphEnd.exec(html)) !== null) {\n      paragraphCount++;\n      if (paragraphCount === randomParagraph) {\n          // Pozice vložení je hned za tagem konce odstavce\n          insertPos = match.index + match[0].length;\n      }\n  }\n\n  // 3. Vlož obrázek\n  if (insertPos !== -1) {\n    html = html.slice(0, insertPos) + \"\\n\\n\" + imageBlock + \"\\n\\n\" + html.slice(insertPos);\n    console.log(`✓ Image inserted after paragraph ${randomParagraph}`);\n  } else {\n    // Pokud je v textu méně než 5 odstavců, vloží se na konec textu\n    html = html + \"\\n\\n\" + imageBlock; \n    console.log('⚠ Less than 5 paragraphs found. Image inserted at the end.');\n  }\n} else {\n  console.log('⚠ Content Media not found, skipping image insertion');\n}\n// **********************************************\n// ** Konec změny **\n// **********************************************\n\n// Výstup\nconst output = {\n  title: wpTitle,\n  content_html_updated: html,\n  featured_media_id: featuredMediaId,\n  post_id: postId // Klíčové pro HTTP Request\n};\n\nconsole.log('=== OUTPUT ===');\nconsole.log('Title:', wpTitle.substring(0, 30));\nconsole.log('Featured Media ID:', featuredMediaId);\nconsole.log('Content Media:', contentMedia ? 'included' : 'skipped');\nconsole.log('Post ID:', postId);\nreturn [{ json: output }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8624,
+        4240
+      ],
+      "id": "ca103c69-f3b3-4eb2-abc5-60fbfb7d015b",
+      "name": "Code JS add media content"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Zkontroluje a připraví data pro WordPress\nconst input = $input.all()[0].json;\n\nlet title, content;\n\n// Pokus o parsování z output pole\nif (input.output) {\n  try {\n    const parsed = JSON.parse(input.output);\n    title = parsed.title;\n    content = parsed.content_html;\n  } catch (e) {\n    console.error('Chyba parsování output:', e);\n    throw new Error('Agent copywriter nevrátil validní JSON');\n  }\n} else {\n  throw new Error('Agent copywriter nevrátil žádný output');\n}\n\n// Kontrola, že máme potřebná data\nif (!title || !content) {\n  throw new Error('Chybí title nebo content v odpovědi agenta');\n}\n\nreturn [{\n  json: {\n    title: title,\n    content_html: content\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8176,
+        4240
+      ],
+      "id": "5ba96571-46d1-415a-b8d7-48cb34451497",
+      "name": "Code JS Style"
+    },
+    {
+      "parameters": {
+        "operation": "resize",
+        "width": 990,
+        "height": 565,
+        "options": {
+          "format": "webp"
+        }
+      },
+      "type": "n8n-nodes-base.editImage",
+      "typeVersion": 1,
+      "position": [
+        9328,
+        4192
+      ],
+      "id": "fa58508a-83f1-47cd-a2dc-fe955320a392",
+      "name": "Resize Image"
+    },
+    {
+      "parameters": {
+        "jsCode": "const title = $json.title || '';\nconst html = $json.content_html || '';\n// Extrakce prvního odstavce\nconst m = html.match(/<p>([\\s\\S]*?)<\\/p>/i);\nconst first = m ? m[1].replace(/<[^>]+>/g, ' ').replace(/<!--[\\s\\S]*?-->/g, ' ').replace(/\\s+/g, ' ').trim() : '';\n// Extrakce klíčových slov\nconst text = (title + ' ' + first).toLowerCase();\nconst stop = new Set(['a','i','ve','se','že','na','pro','do','s','z','o','u','v','je','jsou','to','jak','co','k','tak','aby','pod','nad','od','bez','nebo','ani','aniž','při','po','už','či','které','který','která','ten','ta','to','tento','tato','toto','až','pro','dětí','děti', 'hra', 'svět', 'bloky']);\nconst words = (text.match(/\\p{L}{4,}/gu) || []).filter(w => !stop.has(w));\nconst uniq = [...new Set(words)].slice(0, 6);\nconst keywords = uniq.join(', ');\n// Vytvoření slug pro fileName Z KLÍČOVÝCH SLOV (ne z title!)\nconst keywordSlug = keywords\n  .normalize('NFD')\n  .replace(/[\\u0300-\\u036f]/g, '')\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-+|-+$/g, '')\n  .slice(0, 50);\n// ✅ OPRAVA: Bez Date.now() a s příponou -cont.webp\nconst fileName = (keywordSlug ? keywordSlug : 'obrazek') + '-cont.webp';\n// ✅ OPRAVA: Alt text bez prefixu, max 140 znaků\nconst alt = (title + (keywords ? (' — ' + keywords) : '')).slice(0, 140);\nreturn [{\n  json: {\n    title: $json.title,\n    content_html: $json.content_html,\n    media: {\n      fileName,\n      alt,\n      title: title.slice(0, 100)\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9328,
+        4384
+      ],
+      "id": "f7334905-5ff7-40b7-bf35-4acbc9052c96",
+      "name": "Code JS Prepare media meta"
+    },
+    {
+      "parameters": {
+        "fromEmail": "hravesporeni@gmail.cz",
+        "toEmail": "jarda.majer@centrum.cz",
+        "subject": "=Agent bloger hravé spoření",
+        "html": "=Byl publikován článek na craftime.cz:<br/>\n<a href=\"{{ $json.link }}\">{{ $json.title.rendered }}</a>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        10544,
+        4384
+      ],
+      "id": "e66bad51-54c5-4802-96e1-a8b7ab9a0022",
+      "name": "Odešli oznámení o publikování",
+      "webhookId": "c538aab8-3ef4-4fac-8660-c2b91bb2e264",
+      "credentials": {
+        "smtp": {
+          "id": "t3ogUwyJPZFZrJ3i",
+          "name": "webmail.cesky-hosting.cz - jsem"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "jdemecraftit@gmail.com",
+        "subject": "={{ JSON.parse($json.output).title }} - Blog",
+        "message": "=<h1>{{ JSON.parse($json.output).title }}</h1>\n\n{{ JSON.parse($json.output).content_html }}",
+        "options": {
+          "senderName": "Agent blogujie"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        8176,
+        4032
+      ],
+      "id": "c5e98388-dbc6-402b-99d5-0064f5352a55",
+      "name": "Zálohuj na gmail",
+      "webhookId": "9ee5c9d4-8532-4670-8562-00a54c797fa7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "nd8sQ98TaNlEcr4b",
+          "name": "Gmail - craftime.cz"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "title": "={{ $json.title }}",
+        "additionalFields": {
+          "authorId": 3,
+          "content": "={{ $json.content_html }}",
+          "status": "publish",
+          "format": "standard",
+          "categories": [
+            15
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.wordpress",
+      "typeVersion": 1,
+      "position": [
+        8400,
+        4240
+      ],
+      "id": "57679818-b000-481b-8fa7-7d9b367dd268",
+      "name": "Vytvoř příspěvek",
+      "credentials": {
+        "wordpressApi": {
+          "id": "x6g9ZFxZKhTBhUWB",
+          "name": "Wordpress craftime.cz"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "POUŽIJ TENTO NÁSTROJ K VYHLEDÁNÍ A PŘEČTĚNÍ ANGLICKÝCH ČLÁNKŮ NA DANÉ TÉMA.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n    \"api_key\": \"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\",\n    \"query\": \"{searchTerm}\",\n    \"search_depth\": \"basic\",\n    \"include_answer\": true,\n    \"topic\": \"news\",\n    \"include_raw_content\": true,\n    \"max_results\": 3\n} ",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "searchTerm",
+              "description": "TOPIC that the user has requested to search the internet for",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        7200,
+        4464
+      ],
+      "id": "2a9b8a16-4f99-430d-b083-77623e453ac5",
+      "name": "INTERNET"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        7328,
+        4464
+      ],
+      "id": "174ec309-197f-45e2-955a-6cc3ece59d36",
+      "name": "OpenAI Chat Model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "vWAQ72MbGLYVnB6Q",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        6992,
+        4464
+      ],
+      "id": "8bdf8694-dc9d-44c7-9967-9a302395f1ee",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "vWAQ72MbGLYVnB6Q",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        6448,
+        4240
+      ],
+      "id": "e083b179-237e-48e0-bd48-29bb3696ab88",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-nano",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-nano"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        6624,
+        4464
+      ],
+      "id": "8fdc7ca1-4d5d-4182-a3b1-f14aa6e56080",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "vWAQ72MbGLYVnB6Q",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}",
+        "options": {
+          "ignoreSSL": false
+        }
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        6224,
+        4240
+      ],
+      "id": "48e704b0-fec1-4d4b-94f3-43eccc106091",
+      "name": "RSS Read",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://craftime.cz/wp-json/wp/v2/posts/{{ $('Code JS add media content').item.json.post_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "={{ $('Code JS add media content').item.json.content_html_updated }}"
+            },
+            {
+              "name": "featured_media",
+              "value": "={{ $('Code JS add media content').item.json.featured_media_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        10272,
+        4384
+      ],
+      "id": "3e3c64a7-9d2f-4196-9d88-9b0f676d28b4",
+      "name": "HTTP Request - priradit media",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "FZ93eFjWWYY0EeoG",
+          "name": "AgentUploadCraftime"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        9632,
+        4384
+      ],
+      "id": "8b30c38c-91d0-403b-bf82-86e2b0bd80a7",
+      "name": "Merge - media",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://craftime.cz/wp-json/wp/v2/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Disposition",
+              "value": "=attachment; filename={{ $json.media?.fileName || ($json.slug || 'image') + '.webp' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "={{ $binary.data.mimeType || 'image/webp' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        9904,
+        4384
+      ],
+      "id": "77c5b7aa-990d-4885-84fa-c2b0b5bbe97d",
+      "name": "Send Media - Content",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "FZ93eFjWWYY0EeoG",
+          "name": "AgentUploadCraftime"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Schedule Finanční Gramotnost": [
+      {
+        "json": {
+          "timestamp": "2025-11-28T07:40:41.614+01:00",
+          "Readable date": "November 28th 2025, 7:40:41 am",
+          "Readable time": "7:40:41 am",
+          "Day of week": "Friday",
+          "Year": "2025",
+          "Month": "November",
+          "Day of month": "28",
+          "Hour": "07",
+          "Minute": "40",
+          "Second": "41",
+          "Timezone": "Europe/Berlin (UTC+01:00)"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Send Media - Featured": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - priradit media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge - Featured": {
+      "main": [
+        [
+          {
+            "node": "Send Media - Featured",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code JS - Featured": {
+      "main": [
+        [
+          {
+            "node": "Merge - Featured",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Resize Image - Featured": {
+      "main": [
+        [
+          {
+            "node": "Merge - Featured",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate image - Content": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate image - Featured": {
+      "main": [
+        [
+          {
+            "node": "Code JS - Featured",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Resize Image - Featured",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model9": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent korektor - A",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent korektor - A": {
+      "main": [
+        [
+          {
+            "node": "Zálohuj na gmail",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code JS Style",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent copywriter - A": {
+      "main": [
+        [
+          {
+            "node": "Agent korektor - A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent osnovy - A": {
+      "main": [
+        [
+          {
+            "node": "Agent copywriter - A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent filtr - A": {
+      "main": [
+        [
+          {
+            "node": "Agent osnovy - A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Finanční Gramotnost": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Resize Image",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code JS Prepare media meta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code JS Style": {
+      "main": [
+        [
+          {
+            "node": "Vytvoř příspěvek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resize Image": {
+      "main": [
+        [
+          {
+            "node": "Merge - media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code JS Prepare media meta": {
+      "main": [
+        [
+          {
+            "node": "Merge - media",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        []
+      ]
+    },
+    "Code JS add media content": {
+      "main": [
+        [
+          {
+            "node": "Generate image - Featured",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate image - Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vytvoř příspěvek": {
+      "main": [
+        [
+          {
+            "node": "Code JS add media content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INTERNET": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent osnovy - A",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent copywriter - A",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent osnovy - A",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Agent filtr - A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent filtr - A",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - priradit media": {
+      "main": [
+        [
+          {
+            "node": "Odešli oznámení o publikování",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge - media": {
+      "main": [
+        [
+          {
+            "node": "Send Media - Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Media - Content": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - priradit media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 3600,
+    "availableInMCP": false,
+    "errorWorkflow": "h1VbMS7hKCHrAtJE"
+  },
+  "versionId": "5adfbde1-d5a7-49b1-a781-535f06aba2ac",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8ba1f6382471957faa0b6e84ead5fe6ee62da0902f29ed6504b279df17356e04"
+  },
+  "id": "2LsAPj3ej3tzk0WF",
+  "tags": [
+    {
+      "updatedAt": "2025-11-04T11:36:32.767Z",
+      "createdAt": "2025-11-04T11:36:32.767Z",
+      "id": "ePQK5fz4dCPvqDYv",
+      "name": "wp-post"
+    },
+    {
+      "updatedAt": "2025-07-09T23:31:21.059Z",
+      "createdAt": "2025-07-09T23:31:21.059Z",
+      "id": "giPr8wYqaJHn1OWx",
+      "name": "creator"
+    },
+    {
+      "updatedAt": "2025-11-04T09:55:50.099Z",
+      "createdAt": "2025-11-04T09:55:50.099Z",
+      "id": "qYxNucoxpCvDzxQj",
+      "name": "my-agent"
+    }
+  ]
+}
