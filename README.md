@@ -1,0 +1,1 @@
+# automatizace-bloger
